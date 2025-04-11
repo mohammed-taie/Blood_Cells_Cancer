@@ -1,4 +1,8 @@
 # app.py
+import os
+os.environ['STREAMLIT_SERVER_ENABLE_STATIC_FILE_HANDLING'] = 'false'
+os.environ['STREAMLIT_SERVER_ENABLE_WEB_SOCKET_CONNECTION'] = 'false'
+
 import warnings
 warnings.filterwarnings("ignore", message="Tried to instantiate class '__path__._path'")
 warnings.filterwarnings("ignore", message="You are using `torch.load` with `weights_only=False'")
@@ -584,11 +588,11 @@ def main():
             col1, col2 = st.columns(2)
             with col1:
                 st.subheader("Original Image")
-                st.image(original_image, use_column_width=True)
+                st.image(original_image, use_container_width=True)
             with col2:
                 st.subheader("Adjusted Image")
                 st.image(st.session_state.get("adjusted_image", original_image), 
-                         use_column_width=True)
+                         use_container_width=True)
 
             if st.session_state["run_prediction"]:
                 classifier = BloodCellClassifier(Config())
@@ -628,10 +632,10 @@ def main():
                 cols = st.columns(2)
                 with cols[0]:
                     st.subheader("Original Image")
-                    st.image(original_image, use_column_width=True)
+                    st.image(original_image, use_container_width=True)
                 with cols[1]:
                     st.subheader(f"{explainability_method}")
-                    st.image(explanation_image, use_column_width=True)
+                    st.image(explanation_image, use_container_width=True)
                 
                 st.markdown(generate_explanation_text(explainability_method, "Overlay"))
             st.session_state["run_explainability"] = False
@@ -657,7 +661,7 @@ def main():
                     window_center, 
                     window_width
                 )
-                st.image(windowed_image, use_column_width=True)
+                st.image(windowed_image, use_container_width=True)
             st.session_state["run_windowing"] = False
 
     # Tab 5: 3D Volume
@@ -669,13 +673,13 @@ def main():
                     axial, coronal, sagittal = generate_mpr_views(volume)
                     
                     st.subheader("Axial View")
-                    st.image(axial, use_column_width=True)
+                    st.image(axial, use_container_width=True)
                     
                     st.subheader("Coronal View")
-                    st.image(coronal, use_column_width=True)
+                    st.image(coronal, use_container_width=True)
                     
                     st.subheader("Sagittal View")
-                    st.image(sagittal, use_column_width=True)
+                    st.image(sagittal, use_container_width=True)
                 except Exception as e:
                     st.error(f"Volume rendering failed: {e}")
             st.session_state["render_volume"] = False
@@ -699,7 +703,7 @@ def main():
                 )
                 
                 if canvas_result.image_data is not None:
-                    st.image(canvas_result.image_data, use_column_width=True)
+                    st.image(canvas_result.image_data, use_container_width=True)
 
     # Clinical Workflow Outputs
     if st.session_state["generate_report"]:
