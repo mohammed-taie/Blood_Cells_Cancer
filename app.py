@@ -27,7 +27,6 @@ import pydicom
 from pydicom.pixel_data_handlers.util import apply_voi_lut
 
 from captum.attr import IntegratedGradients  # For advanced explainability
-# Annotation canvas library
 from streamlit_drawable_canvas import st_canvas
 
 # Set page configuration (must be the first Streamlit command)
@@ -523,7 +522,9 @@ def main():
     st.markdown('<p class="main-title">🔬 Blood Smear Classifier App</p>', unsafe_allow_html=True)
     
     # Initialize session state keys if not already available.
-    for key in ["run_prediction", "run_explainability", "generate_report", "view_audit_log", "export_to_emr", "run_confidence", "run_windowing", "render_volume", "annotate_image"]:
+    keys = ["run_prediction", "run_explainability", "generate_report", "view_audit_log",
+            "export_to_emr", "run_confidence", "run_windowing", "render_volume", "annotate_image"]
+    for key in keys:
         if key not in st.session_state:
             st.session_state[key] = False
 
@@ -544,23 +545,32 @@ def main():
                 }
                 st.success("Patient metadata saved!")
 
-        # File Operations for traditional images with explicit key to force refresh
+        # File Operations for traditional images (explicit key)
         with st.expander("📁 File Operations", expanded=True):
-            uploaded_file = st.file_uploader("Upload blood smear image (JPG/PNG)", type=Config().ALLOWED_EXTENSIONS, key="uploaded_file")
+            file_uploaded = st.file_uploader("Upload blood smear image (JPG/PNG)", type=Config().ALLOWED_EXTENSIONS, key="uploaded_file")
+            # Immediately update session state when a new file is uploaded
+            if file_uploaded is not None:
+                st.session_state["uploaded_file"] = file_uploaded
+                st.session_state["original_image"] = None  # Clear any previous image
+
             if st.button("🔄 Clear Cache", key="clear1"):
                 st.cache_resource.clear()
                 st.experimental_rerun()
 
-        # DICOM File Upload (single) with explicit key
+        # DICOM File Upload (explicit key)
         with st.expander("📂 DICOM File Upload", expanded=True):
-            dicom_file = st.file_uploader("Upload single DICOM image", type=["dcm"], key="dicom_file")
+            dicom_uploaded = st.file_uploader("Upload single DICOM image", type=["dcm"], key="dicom_file")
+            if dicom_uploaded is not None:
+                st.session_state["dicom_file"] = dicom_uploaded
+                st.session_state["original_image"] = None  # Clear any previous image
 
-        # 3D Volume & MPR Upload with explicit key
+        # 3D Volume & MPR Upload (explicit key)
         with st.expander("📑 3D Volume & MPR", expanded=True):
             volume_files = st.file_uploader("Upload multiple DICOM files for 3D volume", accept_multiple_files=True, type=["dcm"], key="volume_files")
+            if volume_files:
+                st.session_state["volume_files"] = volume_files
             if st.button("Render 3D Volume"):
                 st.session_state["render_volume"] = True
-                st.session_state["volume_files"] = volume_files
 
         # High-Resolution Controls
         with st.expander("🔍 High-Resolution Controls", expanded=True):
@@ -572,7 +582,7 @@ def main():
             sharpness = st.slider("Sharpness", 0.5, 1.5, 1.0, 0.1)
             real_time_preview = st.checkbox("Real-Time Preview Update", value=True)
 
-        # Annotation Tools Controls (Separate Section)
+        # Annotation Tools Controls
         with st.expander("✏️ Annotation Tools Controls", expanded=True):
             drawing_mode = st.selectbox("Drawing Mode", options=["freedraw", "line", "rect", "circle", "transform"])
             stroke_width = st.slider("Stroke Width", 1, 10, 3, 1)
@@ -675,8 +685,8 @@ def main():
     # Tab 1: Classification
     with tabs[0]:
         original_image = None
-        # Prioritize the file uploaded via the image uploader; if changed, update the session state.
-        if st.session_state.get("uploaded_file") is not None:
+        # Use the current uploaded file if available
+        if "uploaded_file" in st.session_state and st.session_state["uploaded_file"] is not None:
             image_processor = ImageProcessor(Config())
             if not image_processor.validate_file(st.session_state["uploaded_file"]):
                 st.warning("Please upload a valid image file.")
@@ -686,31 +696,21 @@ def main():
                     st.session_state["original_image"] = original_image
                 except Exception:
                     st.stop()
-        elif st.session_state.get("dicom_file") is not None:
+        elif "dicom_file" in st.session_state and st.session_state["dicom_file"] is not None:
             try:
                 original_image = load_dicom_image(st.session_state["dicom_file"])
                 st.session_state["original_image"] = original_image
             except Exception:
                 st.stop()
         else:
-            # Also check the freshly uploaded file objects
-            if st.session_state.get("uploaded_file") is None and st.session_state.get("dicom_file") is None:
-                st.info("Upload an image (JPG/PNG) or a DICOM file in the sidebar to classify.")
+            st.info("Upload an image (JPG/PNG) or a DICOM file in the sidebar to classify.")
 
         if original_image is not None:
-            if real_time_preview:
-                adjusted_image = apply_high_resolution_controls(
-                    original_image, brightness, contrast, zoom,
-                    rotation, saturation, sharpness
-                )
-            else:
-                if st.button("Update Preview"):
-                    adjusted_image = apply_high_resolution_controls(
-                        original_image, brightness, contrast, zoom,
-                        rotation, saturation, sharpness
-                    )
-                else:
-                    adjusted_image = original_image
+            # Always generate a fresh adjusted image from the current original_image.
+            adjusted_image = apply_high_resolution_controls(
+                original_image, brightness, contrast, zoom,
+                rotation, saturation, sharpness
+            ) if real_time_preview or st.button("Update Preview") else original_image
 
             st.session_state["adjusted_image"] = adjusted_image
 
