@@ -10,3 +10,4 @@ pydicom==2.4.0
 captum==0.7.0
 streamlit-drawable-canvas==0.9.0
 matplotlib==3.7.0
+altair==4.2.2
