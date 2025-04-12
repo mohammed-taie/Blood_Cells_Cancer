@@ -619,9 +619,9 @@ def main():
                     # Display images
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.image(original_image, caption="Original Image", use_column_width=True)
+                        st.image(original_image, caption="Original Image", use_container_width=True)
                     with col2:
-                        st.image(adjusted_image, caption="Adjusted Image", use_column_width=True)
+                        st.image(adjusted_image, caption="Adjusted Image", use_container_width=True)
                     
                     # Quality check
                     qc_passed, qc_brightness, qc_sharpness = processor.quality_control(original_image)
@@ -682,9 +682,9 @@ def main():
             
             col1, col2 = st.columns(2)
             with col1:
-                st.image(original_image, caption="Original", use_column_width=True)
+                st.image(original_image, caption="Original", use_container_width=True)
             with col2:
-                st.image(explanation_image, caption="Explanation", use_column_width=True)
+                st.image(explanation_image, caption="Explanation", use_container_width=True)
             
             st.markdown("### Explanation")
             st.markdown(generate_explanation_text(explain_method, viz_mode))
@@ -726,9 +726,9 @@ def main():
             
             col1, col2 = st.columns(2)
             with col1:
-                st.image(ImageOps.grayscale(original), caption="Original", use_column_width=True)
+                st.image(ImageOps.grayscale(original), caption="Original", use_container_width=True)
             with col2:
-                st.image(windowed, caption="Windowed", use_column_width=True)
+                st.image(windowed, caption="Windowed", use_container_width=True)
             
             st.session_state.run_windowing = False
         else:
@@ -744,9 +744,9 @@ def main():
                     volume = load_dicom_volume(volume_files)
                     axial, coronal, sagittal = generate_mpr_views(volume)
                 
-                st.image(axial, caption="Axial View", use_column_width=True)
-                st.image(coronal, caption="Coronal View", use_column_width=True)
-                st.image(sagittal, caption="Sagittal View", use_column_width=True)
+                st.image(axial, caption="Axial View", use_container_width=True)
+                st.image(coronal, caption="Coronal View", use_container_width=True)
+                st.image(sagittal, caption="Sagittal View", use_container_width=True)
                 
                 st.session_state.render_volume = False
             except Exception as e:
@@ -774,7 +774,7 @@ def main():
             )
             
             if canvas_result.image_data is not None:
-                st.image(canvas_result.image_data, caption="Annotated Image", use_column_width=True)
+                st.image(canvas_result.image_data, caption="Annotated Image", use_container_width=True)
                 if st.button("Save Annotation"):
                     annotated = Image.fromarray(canvas_result.image_data.astype('uint8'))
                     st.session_state.annotated_image = annotated
