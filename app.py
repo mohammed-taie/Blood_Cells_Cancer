@@ -8,8 +8,6 @@ import sys
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-import io
-import base64
 
 import streamlit as st
 import torch
@@ -91,16 +89,6 @@ class Config:
             transforms.ToTensor()
         ])
     )
-
-def pil_to_data_url(image: Image.Image) -> str:
-    """
-    Converts a PIL image to a data URL (base64-encoded string)
-    so that it can be used as the background image in st_canvas.
-    """
-    buffered = io.BytesIO()
-    image.save(buffered, format="PNG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
-    return f"data:image/png;base64,{img_str}"
 
 def generate_gradcam(image: Image.Image,
                      model: nn.Module,
@@ -964,8 +952,8 @@ def main():
             
             st.markdown("Use the canvas below to annotate the image. The drawing mode, brush size, stroke color, and fill color are set from the Annotation Tools Controls on the sidebar.")
             
-            # Convert the PIL image to a data URL for the background image
-            bg_image_url = pil_to_data_url(base_image.convert("RGBA"))
+            # Use the PIL image directly as the background image
+            bg_image = base_image.convert("RGBA")
             
             # Retrieve annotation parameters from session_state; set defaults if not available.
             annotation_params = st.session_state.get("annotation_params", {
@@ -979,10 +967,10 @@ def main():
                 fill_color=annotation_params["fill_color"] + "33",  # Append opacity in hex (33 ~ 20%)
                 stroke_width=annotation_params["stroke_width"],
                 stroke_color=annotation_params["stroke_color"],
-                background_image=bg_image_url,
+                background_image=bg_image,
                 update_streamlit=True,
-                height=base_image.height,
-                width=base_image.width,
+                height=bg_image.height,
+                width=bg_image.width,
                 drawing_mode=annotation_params["drawing_mode"],
                 key="canvas_annotation"
             )
