@@ -207,15 +207,25 @@ def apply_windowing(image: Image.Image, window_center: float, window_width: floa
         return ImageOps.grayscale(image)
 
 def load_dicom_image(uploaded_file) -> Image.Image:
-    """Load DICOM file and convert to PIL Image"""
+    """Load DICOM file and convert to PIL Image with proper file handling"""
     try:
+        # Ensure we're reading from the start of the file
+        uploaded_file.seek(0)
+        
+        # Read DICOM file
         ds = pydicom.dcmread(uploaded_file)
         data = ds.pixel_array
+        
+        # Apply VOI LUT if available
         if hasattr(ds, 'WindowWidth') and hasattr(ds, 'WindowCenter'):
             data = apply_voi_lut(data, ds)
+            
+        # Normalize and convert to 8-bit
         data = data.astype(np.float32)
         data = (data - data.min()) / (data.max() - data.min() + 1e-8)
         data = (data * 255).astype(np.uint8)
+        
+        # Convert to PIL Image
         image = Image.fromarray(data)
         return image.convert("RGB")
     except Exception as e:
@@ -329,19 +339,33 @@ class ImageProcessor:
         self.config = config
 
     def validate_file(self, uploaded_file) -> bool:
+        """Validate both regular images and DICOM files"""
         try:
+            # Check file size
             if uploaded_file.size > self.config.MAX_MB * 1024 * 1024:
                 raise ValueError(f"File exceeds {self.config.MAX_MB}MB limit")
                 
+            # Check file extension
             ext = uploaded_file.name.split('.')[-1].lower()
             if ext not in self.config.ALLOWED_EXTENSIONS:
                 raise ValueError(f"Invalid file type. Allowed: {self.config.ALLOWED_EXTENSIONS}")
-                
-            with Image.open(uploaded_file) as img:
-                img.verify()
-                if min(img.size) < self.config.MIN_IMAGE_DIM:
-                    raise ValueError(f"Image too small (min {self.config.MIN_IMAGE_DIM}px)")
-            return True
+            
+            # Special handling for DICOM files
+            if ext == 'dcm':
+                try:
+                    # Just verify we can read the DICOM header
+                    uploaded_file.seek(0)
+                    pydicom.dcmread(uploaded_file, stop_before_pixels=True)
+                    return True
+                except Exception as e:
+                    raise ValueError(f"Invalid DICOM file: {str(e)}")
+            else:
+                # For regular images, use PIL to verify
+                with Image.open(uploaded_file) as img:
+                    img.verify()
+                    if min(img.size) < self.config.MIN_IMAGE_DIM:
+                        raise ValueError(f"Image too small (min {self.config.MIN_IMAGE_DIM}px)")
+                return True
         except Exception as e:
             st.error(f"Invalid file: {str(e)}")
             return False
@@ -359,13 +383,21 @@ class ImageProcessor:
             return False, 0, 0
 
     def load_image(self, uploaded_file) -> Image.Image:
-        """Load and validate image"""
+        """Load either regular image or DICOM file"""
         try:
-            image = Image.open(uploaded_file).convert("RGB")
-            qc_passed, _, _ = self.quality_control(image)
-            if not qc_passed:
-                st.warning("Image quality check failed - proceed with caution")
-            return image
+            ext = uploaded_file.name.split('.')[-1].lower()
+            
+            if ext == 'dcm':
+                # Handle DICOM file
+                uploaded_file.seek(0)  # Rewind the file
+                return load_dicom_image(uploaded_file)
+            else:
+                # Handle regular image
+                image = Image.open(uploaded_file).convert("RGB")
+                qc_passed, _, _ = self.quality_control(image)
+                if not qc_passed:
+                    st.warning("Image quality check failed - proceed with caution")
+                return image
         except Exception as e:
             st.error(f"Image load failed: {str(e)}")
             raise
