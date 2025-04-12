@@ -490,7 +490,7 @@ def main():
             uploaded_file = st.file_uploader("Upload blood smear image", type=Config().ALLOWED_EXTENSIONS)
             if st.button("🔄 Clear Cache"):
                 st.cache_resource.clear()
-                st.experimental_rerun()
+                st.rerun()
 
         # DICOM File Upload
         with st.expander("📂 DICOM File Upload", expanded=True):
@@ -524,7 +524,7 @@ def main():
                 st.session_state["run_prediction"] = True
             if st.button("❌ Clear Results"):
                 st.session_state.clear()
-                st.experimental_rerun()
+                st.rerun()
 
         # Explainability Controls
         with st.expander("🧩 Explainability", expanded=True):
