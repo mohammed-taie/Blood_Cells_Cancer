@@ -8,6 +8,8 @@ import sys
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
+import io
+import base64
 
 import streamlit as st
 import torch
@@ -76,7 +78,7 @@ class Config:
     ALLOWED_EXTENSIONS: list = field(default_factory=lambda: ["jpg", "jpeg", "png"])
     MIN_IMAGE_DIM: int = 64
     MODEL_INPUT_SIZE: tuple = (128, 128)
-    MODEL_WEIGHTS_PATH: str = "model/blood-cell-cancer-pytorch-weights.pth"
+    MODEL_WEIGHTS_PATH: str = "blood-cell-cancer-pytorch-weights.pth"
     CLASS_LABELS: dict = field(default_factory=lambda: {
         0: "Benign",
         1: "Early_Pre_B",
@@ -89,6 +91,16 @@ class Config:
             transforms.ToTensor()
         ])
     )
+
+def pil_to_data_url(image: Image.Image) -> str:
+    """
+    Converts a PIL image to a data URL (base64-encoded string)
+    so that it can be used as the background image in st_canvas.
+    """
+    buffered = io.BytesIO()
+    image.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    return f"data:image/png;base64,{img_str}"
 
 def generate_gradcam(image: Image.Image,
                      model: nn.Module,
@@ -537,7 +549,7 @@ def main():
             uploaded_file = st.file_uploader("Upload blood smear image (JPG/PNG)", type=Config().ALLOWED_EXTENSIONS)
             if st.button("🔄 Clear Cache", key="clear1"):
                 st.cache_resource.clear()
-                st.rerun()
+                st.experimental_rerun()
 
         # DICOM File Upload (single)
         with st.expander("📂 DICOM File Upload", expanded=True):
@@ -581,7 +593,7 @@ def main():
                 st.session_state["run_prediction"] = True
             if st.button("❌ Clear Results", key="clear2"):
                 st.session_state.clear()
-                st.rerun()
+                st.experimental_rerun()
 
         # Enhanced Explainability Controls
         with st.expander("🧩 Enhanced Explainability Controls", expanded=True):
@@ -702,10 +714,10 @@ def main():
             col1, col2 = st.columns(2)
             with col1:
                 st.subheader("🖼️ Original Image")
-                st.image(original_image, use_container_width=True)
+                st.image(original_image, use_column_width=True)
             with col2:
                 st.subheader("🖼️ Adjusted Image")
-                st.image(adjusted_image, use_container_width=True)
+                st.image(adjusted_image, use_column_width=True)
 
             if st.button("Check Image Quality", key="check_quality_main"):
                 qc_passed, brightness_value, laplacian_value = image_processor.quality_control(original_image)
@@ -806,7 +818,7 @@ def main():
                 cols = st.columns(2)
                 with cols[0]:
                     st.subheader("🖼️ Original Image")
-                    st.image(original_image, use_container_width=True)
+                    st.image(original_image, use_column_width=True)
                 with cols[1]:
                     st.subheader(f"🖼️ {explainability_method} (Resized)")
                     st.image(resized_explanation, width=300)
@@ -889,10 +901,10 @@ def main():
                 cols = st.columns(2)
                 with cols[0]:
                     st.subheader("🖼 Original Grayscale")
-                    st.image(ImageOps.grayscale(original_image), use_container_width=True)
+                    st.image(ImageOps.grayscale(original_image), use_column_width=True)
                 with cols[1]:
                     st.subheader("🖼 Windowed Image")
-                    st.image(windowed_image, use_container_width=True)
+                    st.image(windowed_image, use_column_width=True)
                 st.markdown(
                     f"""
 ### Detailed Explanation
@@ -926,11 +938,11 @@ def main():
                         st.error(f"3D Volume Rendering failed: {e}")
                         st.stop()
                 st.markdown("### Axial View")
-                st.image(axial_img, caption="Axial (Transverse) View", use_container_width=True)
+                st.image(axial_img, caption="Axial (Transverse) View", use_column_width=True)
                 st.markdown("### Coronal View")
-                st.image(coronal_img, caption="Coronal View", use_container_width=True)
+                st.image(coronal_img, caption="Coronal View", use_column_width=True)
                 st.markdown("### Sagittal View")
-                st.image(sagittal_img, caption="Sagittal View", use_container_width=True)
+                st.image(sagittal_img, caption="Sagittal View", use_column_width=True)
             else:
                 st.warning("No DICOM volume files uploaded. Please upload multiple DICOM files in the sidebar.")
             st.session_state["render_volume"] = False
@@ -952,8 +964,8 @@ def main():
             
             st.markdown("Use the canvas below to annotate the image. The drawing mode, brush size, stroke color, and fill color are set from the Annotation Tools Controls on the sidebar.")
             
-            # Use the PIL image directly as the background image
-            bg_image = base_image.convert("RGBA")
+            # Convert the PIL image to a data URL for the background image
+            bg_image_url = pil_to_data_url(base_image.convert("RGBA"))
             
             # Retrieve annotation parameters from session_state; set defaults if not available.
             annotation_params = st.session_state.get("annotation_params", {
@@ -967,17 +979,17 @@ def main():
                 fill_color=annotation_params["fill_color"] + "33",  # Append opacity in hex (33 ~ 20%)
                 stroke_width=annotation_params["stroke_width"],
                 stroke_color=annotation_params["stroke_color"],
-                background_image=bg_image,
+                background_image=bg_image_url,
                 update_streamlit=True,
-                height=bg_image.height,
-                width=bg_image.width,
+                height=base_image.height,
+                width=base_image.width,
                 drawing_mode=annotation_params["drawing_mode"],
                 key="canvas_annotation"
             )
             if canvas_result.image_data is not None:
                 annotated_image = Image.fromarray(canvas_result.image_data.astype(np.uint8))
                 st.markdown("### Annotated Image")
-                st.image(annotated_image, use_container_width=True)
+                st.image(annotated_image, use_column_width=True)
             else:
                 st.info("Draw on the canvas to annotate the image.")
         else:
